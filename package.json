@@ -1,4 +1,7 @@
 {
+  "imports": {
+    "#common": "./common/index.mjs"
+  },
   "dependencies": {
     "csv-write-stream": "^2.0.0",
     "node-fetch": "^3.2.3",
