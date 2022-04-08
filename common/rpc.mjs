@@ -21,7 +21,8 @@ const POST = (data) => ({
 })
 
 export const rpcRequest = (data, { url = 'http://localhost:7076' } = {}) => {
-  return { url, ...POST(data) }
+  const options = { url, ...POST(data) }
+  return request(options)
 }
 
 export const unchecked_keys = async ({ key, count = 1000, url }) => {
@@ -33,6 +34,34 @@ export const unchecked_keys = async ({ key, count = 1000, url }) => {
 
   if (key) data.key = key
 
-  const options = rpcRequest(data, { url })
-  return request(options)
+  return rpcRequest(data, { url })
+}
+
+export const account_info = ({ account, url } = {}) => {
+  const data = {
+    action: 'account_info',
+    weight: true,
+    account
+  }
+  return rpcRequest(data, { url })
+}
+
+export const work_generate = ({ hash, difficulty, url } = {}) => {
+  const data = {
+    action: 'work_generate',
+    hash
+  }
+  if (difficulty) data.difficulty = difficulty
+
+  return rpcRequest(data, { url })
+}
+
+export const process = ({ block, url } = {}) => {
+  const data = {
+    action: 'process',
+    json_block: true,
+    block
+  }
+
+  return rpcRequest(data, { url })
 }

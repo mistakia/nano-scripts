@@ -10,7 +10,7 @@ const LIMIT = 1000
 const argv = yargs(hideBin(process.argv)).argv
 
 const run = async () => {
-  let url = argv.url
+  const url = argv.url
 
   writer.pipe(fs.createWriteStream('./unchecked_blocks.csv'))
 
@@ -30,7 +30,7 @@ const run = async () => {
     key = res.unchecked[res.unchecked.length - 1].key
   } while (length === LIMIT)
 
-    writer.end()
+  writer.end()
 }
 
 const main = async () => {

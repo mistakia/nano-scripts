@@ -2,9 +2,24 @@
   "imports": {
     "#common": "./common/index.mjs"
   },
+  "scripts": {
+    "lint": "eslint . --ext js,mjs",
+    "prettier": "prettier --write ."
+  },
   "dependencies": {
+    "@babel/core": "^7.17.9",
+    "@babel/eslint-parser": "^7.17.0",
     "csv-write-stream": "^2.0.0",
+    "debug": "^4.3.4",
+    "eslint": "^8.12.0",
+    "eslint-config-standard": "^16.0.3",
+    "eslint-plugin-import": "^2.26.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^6.0.0",
+    "nanocurrency": "^2.5.0",
+    "nanocurrency-web": "^1.3.6",
     "node-fetch": "^3.2.3",
+    "prettier": "^2.6.2",
     "yargs": "^17.4.0"
   }
 }

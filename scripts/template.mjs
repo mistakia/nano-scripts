@@ -2,6 +2,8 @@ import debug from 'debug'
 // import yargs from 'yargs'
 // import { hideBin } from 'yargs/helpers'
 
+import { isMain } from '#common'
+
 // const argv = yargs(hideBin(process.argv)).argv
 // const log = debug('template')
 debug.enable('template')
