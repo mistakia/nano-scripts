@@ -56,11 +56,12 @@ export const work_generate = ({ hash, difficulty, url } = {}) => {
   return rpcRequest(data, { url })
 }
 
-export const process = ({ block, url } = {}) => {
+export const process = ({ block, url, async = false } = {}) => {
   const data = {
     action: 'process',
     json_block: true,
-    block
+    block,
+    async
   }
 
   return rpcRequest(data, { url })

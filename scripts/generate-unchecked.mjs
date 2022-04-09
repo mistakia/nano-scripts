@@ -86,7 +86,7 @@ const generate_fork = ({
   return signed_forkB
 }
 
-const run = async ({ account, url, privateKey, workerUrl }) => {
+const run = async ({ account, url, privateKey, workerUrl, count = 10000, publish = false }) => {
   // get account
   const account_info = await rpc.account_info({ account, url })
   account_info.account = account
@@ -105,16 +105,21 @@ const run = async ({ account, url, privateKey, workerUrl }) => {
   })
 
   // generate forks for successor blockB
-  const total = 10000
-  for (let i = 0; i < 10000; i++) {
+  for (let i = 0; i < count; i++) {
     const fork = generate_fork({
       account_info,
       blockA_hash,
       privateKey,
       blockB_work: blockB.work
     })
-    await rpc.process({ block: fork, url })
-    process.stdout.write(`\rPublishing Forks: ${i}/${total}`)
+    await rpc.process({ block: fork, url, async: true })
+    process.stdout.write(`\rPublishing Forks: ${i}/${count}`)
+  }
+
+  if (publish) {
+    await rpc.process({ block: blockA, url })
+    log(`published blockA: ${blockA_hash}`)
+    log(blockA)
   }
 }
 
@@ -125,8 +130,10 @@ const main = async () => {
     const url = argv.url
     const privateKey = argv.privateKey
     const workerUrl = argv.workerUrl
+    const publish = argv.publish
+    const count = argv.count
 
-    await run({ account, url, privateKey, workerUrl })
+    await run({ account, url, privateKey, workerUrl, publish, count })
   } catch (err) {
     error = err
     console.log(error)
