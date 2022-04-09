@@ -90,7 +90,14 @@ const generate_fork = ({
   return signed_forkB
 }
 
-const run = async ({ account, url, privateKey, workerUrl, count = 10000, publish = false }) => {
+const run = async ({
+  account,
+  url,
+  privateKey,
+  workerUrl,
+  count = 10000,
+  publish = false
+}) => {
   // get account
   const account_info = await rpc.account_info({ account, url })
   account_info.account = account
@@ -112,35 +119,44 @@ const run = async ({ account, url, privateKey, workerUrl, count = 10000, publish
   const __filename = fileURLToPath(import.meta.url)
   const threads = os.cpus().length
   log(`using ${threads} threads`)
+
   const queue = new PQueue({ concurrency: threads })
   let i = 0
-  const fork_worker = () => new Promise((resolve, reject) => {
-    i++
-    const worker = new Worker(__filename)
-    worker.once('message', async (fork) => {
-      process.stdout.write(`\rPublishing Forks: ${i}/${count}`)
-      resolve(fork)
-    })
+  const start_time = process.hrtime()
+  log(start_time)
 
-    worker.on('error', (error) => {
-      log(error)
-      reject(error)
-    })
+  const fork_worker = () =>
+    new Promise((resolve, reject) => {
+      i++
+      const worker = new Worker(__filename)
+      worker.once('message', async (fork) => {
+        process.stdout.write(
+          `\rPublishing Forks: ${i}/${count} (${(
+            i / process.hrtime(start_time)[0]
+          ).toFixed(1)} bps)\r`
+        )
+        resolve(fork)
+      })
 
-    worker.postMessage({
-      account_info,
-      blockA_hash,
-      privateKey,
-      blockB_work: blockB.work,
-      url
+      worker.on('error', (error) => {
+        log(error)
+        reject(error)
+      })
+
+      worker.postMessage({
+        account_info,
+        blockA_hash,
+        privateKey,
+        blockB_work: blockB.work,
+        url
+      })
     })
-  })
 
   for (let i = 0; i < count; i++) {
     queue.add(fork_worker)
   }
 
-  await queue.onEmpty()
+  await queue.onIdle()
 
   if (publish) {
     await rpc.process({ block: blockA, url })
