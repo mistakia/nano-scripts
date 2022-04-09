@@ -110,7 +110,7 @@ const run = async ({ account, url, privateKey, workerUrl, count = 10000, publish
 
   // generate forks for successor blockB
   const __filename = fileURLToPath(import.meta.url)
-  const threads = os.cpus().length * 2
+  const threads = os.cpus().length
   log(`using ${threads} threads`)
   const queue = new PQueue({ concurrency: threads })
   let i = 0
@@ -173,9 +173,13 @@ if (isMain && isMainThread) {
   main()
 } else {
   parentPort.once('message', async (params) => {
-    const fork = generate_fork(params)
-    await rpc.process({ block: fork, url: params.url, async: true })
-    parentPort.postMessage(fork)
+    try {
+      const fork = generate_fork(params)
+      await rpc.process({ block: fork, url: params.url, async: true })
+      parentPort.postMessage(fork)
+    } catch (err) {
+      parentPort.postMessage(err)
+    }
     process.exit()
   })
 }
