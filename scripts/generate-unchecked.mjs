@@ -4,6 +4,10 @@ import { hideBin } from 'yargs/helpers'
 import crypto from 'crypto'
 import { block } from 'nanocurrency-web'
 import * as nanocurrency from 'nanocurrency'
+import { Worker, isMainThread, parentPort } from 'worker_threads'
+import { fileURLToPath } from 'url'
+import PQueue from 'p-queue'
+import os from 'os'
 
 import { isMain, rpc, constants } from '#common'
 
@@ -105,22 +109,45 @@ const run = async ({ account, url, privateKey, workerUrl, count = 10000, publish
   })
 
   // generate forks for successor blockB
-  for (let i = 0; i < count; i++) {
-    const fork = generate_fork({
+  const __filename = fileURLToPath(import.meta.url)
+  const threads = os.cpus().length * 2
+  log(`using ${threads} threads`)
+  const queue = new PQueue({ concurrency: threads })
+  let i = 0
+  const fork_worker = () => new Promise((resolve, reject) => {
+    i++
+    const worker = new Worker(__filename)
+    worker.once('message', async (fork) => {
+      process.stdout.write(`\rPublishing Forks: ${i}/${count}`)
+      resolve(fork)
+    })
+
+    worker.on('error', (error) => {
+      log(error)
+      reject(error)
+    })
+
+    worker.postMessage({
       account_info,
       blockA_hash,
       privateKey,
-      blockB_work: blockB.work
+      blockB_work: blockB.work,
+      url
     })
-    await rpc.process({ block: fork, url, async: true })
-    process.stdout.write(`\rPublishing Forks: ${i}/${count}`)
+  })
+
+  for (let i = 0; i < count; i++) {
+    queue.add(fork_worker)
   }
+
+  await queue.onEmpty()
 
   if (publish) {
     await rpc.process({ block: blockA, url })
     log(`published blockA: ${blockA_hash}`)
     log(blockA)
   }
+  log('done')
 }
 
 const main = async () => {
@@ -142,8 +169,15 @@ const main = async () => {
   process.exit()
 }
 
-if (isMain) {
+if (isMain && isMainThread) {
   main()
+} else {
+  parentPort.once('message', async (params) => {
+    const fork = generate_fork(params)
+    await rpc.process({ block: fork, url: params.url, async: true })
+    parentPort.postMessage(fork)
+    process.exit()
+  })
 }
 
 export default run
