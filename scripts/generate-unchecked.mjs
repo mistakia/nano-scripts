@@ -16,13 +16,10 @@ const log = debug('template')
 debug.enable('template')
 
 const generate_blockA = async ({ account_info, privateKey, workerUrl }) => {
-  const derived_repA = nanocurrency
-    .deriveAddress(account_info.frontier)
-    .replace('xrb_', 'nano_')
   const blockA = {
     walletBalanceRaw: account_info.balance,
     address: account_info.account,
-    representativeAddress: derived_repA,
+    representativeAddress: 'nano_1111111111111111111111111111111111111111111111111111hifc8npp',
     frontier: account_info.frontier,
     work: '0000000000000000'
   }
@@ -33,6 +30,7 @@ const generate_blockA = async ({ account_info, privateKey, workerUrl }) => {
     url: workerUrl
   })
 
+  signed_blockA.representative = 'nano_1111111111111111111111111111111111111111111111111111hifc8npp'
   signed_blockA.work = workA_res.work
 
   return signed_blockA
