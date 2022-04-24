@@ -2,8 +2,7 @@ import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
 import csvWriter from 'csv-write-stream'
 import fs from 'fs'
-
-import { rpc } from '#common'
+import rpc from 'nano-rpc'
 
 const writer = csvWriter()
 const LIMIT = 1000
@@ -17,7 +16,13 @@ const run = async () => {
   let length
   let key
   do {
-    const res = await rpc.unchecked_keys({ key, url, count: LIMIT })
+    const res = await rpc({
+      action: 'unchecked_keys',
+      key,
+      url,
+      count: LIMIT,
+      json_block: true
+    })
 
     // push all but first to csv
     const blocks = res.unchecked.slice(1)

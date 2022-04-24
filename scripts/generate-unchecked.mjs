@@ -8,8 +8,9 @@ import { Worker, isMainThread, parentPort } from 'worker_threads'
 import { fileURLToPath } from 'url'
 import PQueue from 'p-queue'
 import os from 'os'
+import rpc from 'nano-rpc'
 
-import { isMain, rpc, constants } from '#common'
+import { isMain, constants } from '#common'
 
 const argv = yargs(hideBin(process.argv)).argv
 const log = debug('template')
@@ -19,18 +20,21 @@ const generate_blockA = async ({ account_info, privateKey, workerUrl }) => {
   const blockA = {
     walletBalanceRaw: account_info.balance,
     address: account_info.account,
-    representativeAddress: 'nano_1111111111111111111111111111111111111111111111111111hifc8npp',
+    representativeAddress:
+      'nano_1111111111111111111111111111111111111111111111111111hifc8npp',
     frontier: account_info.frontier,
     work: '0000000000000000'
   }
   const signed_blockA = block.representative(blockA, privateKey)
-  const workA_res = await rpc.work_generate({
+  const workA_res = await rpc({
+    action: 'work_generate',
     hash: account_info.frontier,
     difficulty: constants.WORK_THRESHOLD_BETA,
     url: workerUrl
   })
 
-  signed_blockA.representative = 'nano_1111111111111111111111111111111111111111111111111111hifc8npp'
+  signed_blockA.representative =
+    'nano_1111111111111111111111111111111111111111111111111111hifc8npp'
   signed_blockA.work = workA_res.work
 
   return signed_blockA
@@ -54,7 +58,8 @@ const generate_blockB = async ({
     work: '0000000000000000'
   }
   const signed_blockB = block.representative(blockB, privateKey)
-  const workB_res = await rpc.work_generate({
+  const workB_res = await rpc({
+    action: 'work_generate',
     hash: blockA_hash,
     difficulty: constants.WORK_THRESHOLD_BETA,
     url: workerUrl
@@ -97,7 +102,7 @@ const run = async ({
   publish = false
 }) => {
   // get account
-  const account_info = await rpc.account_info({ account, url })
+  const account_info = await rpc({ action: 'account_info', account, url })
   account_info.account = account
   log(account_info)
 
@@ -157,7 +162,7 @@ const run = async ({
   await queue.onIdle()
 
   if (publish) {
-    await rpc.process({ block: blockA, url })
+    await rpc({ action: 'process', block: blockA, url })
     log(`published blockA: ${blockA_hash}`)
     log(blockA)
   }
@@ -189,7 +194,12 @@ if (isMain && isMainThread) {
   parentPort.once('message', async (params) => {
     try {
       const fork = generate_fork(params)
-      await rpc.process({ block: fork, url: params.url, async: true })
+      await rpc({
+        action: 'process',
+        block: fork,
+        url: params.url,
+        async: true
+      })
       parentPort.postMessage(fork)
     } catch (err) {
       parentPort.postMessage(err)
