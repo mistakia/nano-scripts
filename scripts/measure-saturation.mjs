@@ -28,15 +28,27 @@ const getWebsocket = (wsUrl) =>
     ws.on('error', (error) => reject(error))
   })
 
+function setBalance(buffer, balanceStr, offset) {
+  const balance = BigInt(balanceStr);
+  buffer.writeBigUInt64BE(
+    balance >> 64n,
+    offset
+  );
+  buffer.writeBigUInt64BE(
+    balance & 0xffffffffffffffffn,
+    offset + 8
+  );
+}
+
 const encodeBlock = (block) => {
   const buf = Buffer.alloc(216)
-  buf.write(nanocurrency.derivePublicKey(block.account), 0)
-  buf.write(block.previous, 32)
-  buf.write(nanocurrency.derivePublicKey(block.representative), 64)
-  buf.write(BigInt(block.balance).toString(16), 96, 16, 'hex')
-  buf.write(block.link, 112)
-  buf.write(block.signature, 144)
-  buf.write(block.work, 208)
+  buf.write(nanocurrency.derivePublicKey(block.account), 0, 32, 'hex')
+  buf.write(block.previous, 32, 32, 'hex')
+  buf.write(nanocurrency.derivePublicKey(block.representative), 64, 32 ,'hex')
+  setBalance(buf, block.balance, 96)
+  buf.write(block.link, 112, 32, 'hex')
+  buf.write(block.signature, 144, 64, 'hex')
+  buf.write(block.work, 208, 8, 'hex')
   return buf
 }
 
@@ -386,6 +398,7 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
         privateKey: accounts[i].privateKey,
         workerUrl
       })
+      console.log(changeBlock)
       const encoded = encodeBlock(changeBlock)
       blocks.push(encoded.toString('hex'))
     }
