@@ -6,12 +6,17 @@ import rpc from 'nano-rpc'
 import WebSocket from 'ws'
 import * as nanocurrency from 'nanocurrency'
 import crypto from 'crypto'
+import fs from 'fs-extra'
+
+import NanoNode from '../../nano-node-light/lib/nano-node.js'
+import * as nodeConstants from '../../nano-node-light/common/constants.js'
 
 import { isMain, constants } from '#common'
 
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const argv = yargs(hideBin(process.argv)).argv
 const log = debug('template')
-debug.enable('template')
+debug.enable('*')
 
 const getWebsocket = (wsUrl) =>
   new Promise((resolve, reject) => {
@@ -22,6 +27,18 @@ const getWebsocket = (wsUrl) =>
 
     ws.on('error', (error) => reject(error))
   })
+
+const encodeBlock = (block) => {
+  const buf = Buffer.alloc(216)
+  buf.write(nanocurrency.derivePublicKey(block.account), 0)
+  buf.write(block.previous, 32)
+  buf.write(nanocurrency.derivePublicKey(block.representative), 64)
+  buf.write(BigInt(block.balance).toString(16), 96, 16, 'hex')
+  buf.write(block.link, 112)
+  buf.write(block.signature, 144)
+  buf.write(block.work, 208)
+  return buf
+}
 
 const createSendBlock = async ({
   accountInfo,
@@ -193,24 +210,19 @@ const confirmBlock = ({ ws, block, hash, url }) =>
 
 const run = async ({ seed, url, wsUrl, workerUrl }) => {
   const ws = await getWebsocket(wsUrl)
-  ws.on('message', (data) => {
-    // console.log(JSON.parse(data))
-  })
 
   const start = 0
   const num_accounts = 5000
   const accounts = wallet.legacyAccounts(seed, start, num_accounts)
   const main_account = accounts.shift()
-  log('main account', main_account)
+  log(`main account: ${main_account.address}`)
 
   ws.send(
     JSON.stringify({
       action: 'subscribe',
       topic: 'confirmation',
       options: {
-        accounts: [
-          main_account.address
-        ]
+        accounts: [main_account.address]
       }
     })
   )
@@ -225,7 +237,6 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
       url
     }
   )
-  log('main account info', main_account_info)
 
   if (main_account_info.error) {
     if (main_account_info.error === 'Account not found') {
@@ -246,14 +257,19 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
     accounts: accounts.map((a) => a.address)
   }
   const res2 = await rpc(action, { url })
-  log(res2)
-  const amount = 1e26
-  const res_values = Object.values(res2.frontiers)
+  const frontier_hashes = Object.values(res2.frontiers)
+  const unopened_count = frontier_hashes.filter(
+    (f) => f === 'error: Account not found'
+  ).length
+
+  log(`Opened: ${num_accounts - unopened_count}, Unopened: ${unopened_count}`)
+
   let mainFrontier = main_account_info.frontier
   let mainBalance = main_account_info.balance
+  const amount = 1e26
   for (let i = 0; i < accounts.length; i++) {
     const account = accounts[i].address
-    const frontier = res_values[i]
+    const frontier = frontier_hashes[i]
 
     // check if account unopened
     if (frontier === 'error: Account not found') {
@@ -271,7 +287,7 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
       // create send from main account
       let sendBlock
       let sendHash
-      if (!res3.blocks.length) {
+      if (!res3.blocks || !res3.blocks.length) {
         sendBlock = await createSendBlock({
           accountInfo: {
             ...main_account_info,
@@ -287,7 +303,19 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
         mainBalance = sendBlock.balance
         mainFrontier = sendHash = nanocurrency.hashBlock(sendBlock)
 
-        await confirmBlock({ ws, block: sendBlock, hash: sendHash, url })
+        await rpc(
+          {
+            action: 'process',
+            json_block: true,
+            async: true,
+            block: sendBlock
+          },
+          {
+            url
+          }
+        )
+
+        // await confirmBlock({ ws, block: sendBlock, hash: sendHash, url })
       }
 
       // create open for account
@@ -301,20 +329,145 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
       })
       const openHash = nanocurrency.hashBlock(openBlock)
 
-      await confirmBlock({ ws, block: openBlock, hash: openHash, url })
+      await rpc(
+        {
+          action: 'process',
+          json_block: true,
+          async: true,
+          block: openBlock
+        },
+        {
+          url
+        }
+      )
+
+      //await confirmBlock({ ws, block: openBlock, hash: openHash, url })
     }
   }
 
   // check disk for cache of blocks
+  const file = './saturation-cache.json'
+  let cache = fs.pathExistsSync(file) ? fs.readJsonSync(file) : null
+
   // valid previous matches frontiers
-  // if needed, create 5k change blocks (1 per account)
-  // save to disk
+  if (!cache || cache.account !== main_account.address) {
+    log('Block cache not found, generating change blocks')
+
+    // create 5k change blocks (1 per account)
+    const res = await rpc(
+      {
+        action: 'blocks_info',
+        json_block: true,
+        include_not_found: true,
+        hashes: frontier_hashes
+      },
+      {
+        url
+      }
+    )
+
+    const blocks = []
+    for (let i = 0; i < accounts.length; i++) {
+      const account = accounts[i].address
+      const frontier = frontier_hashes[i]
+      const frontierBlock = res.blocks[frontier]
+
+      const derived_rep_from_frontier = nanocurrency
+        .deriveAddress(frontier)
+        .replace('xrb_', 'nano_')
+
+      const changeBlock = await createChangeBlock({
+        accountInfo: {
+          balance: frontierBlock.balance,
+          frontier,
+          account
+        },
+        rep: derived_rep_from_frontier,
+        privateKey: accounts[i].privateKey,
+        workerUrl
+      })
+      const encoded = encodeBlock(changeBlock)
+      blocks.push(encoded.toString('hex'))
+    }
+
+    // save to disk
+    cache = {
+      account: main_account.address,
+      blocks
+    }
+    fs.writeJsonSync(file, cache, {
+      spaces: 2
+    })
+  }
+
+  const network = nodeConstants.NETWORK.BETA
+  const node = new NanoNode({ network })
+
+  node.on('error', (error) => {
+    console.log(error)
+  })
+
+  node.connect({
+    address: network.ADDRESS,
+    port: network.PORT
+  })
+
+  // new websocket subscription
+  ws.send(
+    JSON.stringify({
+      action: 'subscribe',
+      topic: 'confirmation'
+    })
+  )
 
   // sample time
+  const startTime = process.hrtime.bigint()
+  log(`Start Time: ${startTime}`)
+
+  let confirmation_counter = 0
+  let endTime
+  let broadcastEndTime
+  ws.on('message', (data) => {
+    const d = JSON.parse(data)
+
+    if (d.topic !== 'confirmation') return
+    confirmation_counter += 1
+    process.stdout.clearLine()
+    process.stdout.cursorTo(0)
+    process.stdout.write(`${confirmation_counter}/${num_accounts}`)
+
+    if (confirmation_counter === num_accounts) {
+      endTime = process.hrtime.bigint()
+      console.log(startTime)
+      console.log(broadcastEndTime)
+      console.log(endTime)
+
+      process.exit()
+    }
+  })
+
+  await wait(3000)
+
+  log(`Node Peers: ${node.peers.size}`)
+
   // broadcast blocks
+  for (const block of cache.blocks) {
+    const buf = Buffer.isBuffer(block) ? block : Buffer.from(block, 'hex')
+
+    node.publish(buf)
+    /* const action = {
+     *   action: 'process',
+     *   json_block: true,
+     *   async: true,
+     *   block
+     * }
+     * const res = await rpc(action, { url })
+     * log(res) */
+  }
+
   // sample time
-  // wait for 5k confirmations
-  // sample time
+  broadcastEndTime = process.hrtime.bigint()
+  log(`Broadcast End Time: ${broadcastEndTime}`)
 }
 
 const main = async () => {
@@ -345,8 +498,6 @@ const main = async () => {
     error = err
     console.log(error)
   }
-
-  process.exit()
 }
 
 if (isMain) {
