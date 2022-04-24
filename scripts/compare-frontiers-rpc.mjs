@@ -38,13 +38,17 @@ const run = async () => {
   do {
     logger(`fetching ledger with ${account}, modified_since: ${modified_since}`)
 
-    const { accounts } = await rpc({
-      action: 'ledger',
-      account,
-      url: argv.rpc1,
-      modified_since,
-      count: batchSize
-    })
+    const { accounts } = await rpc(
+      {
+        action: 'ledger',
+        account,
+        modified_since,
+        count: batchSize
+      },
+      {
+        url: argv.rpc1
+      }
+    )
 
     const addresses = Object.keys(accounts)
     addressCount = addresses.length
@@ -54,18 +58,26 @@ const run = async () => {
 
     logger(`received ${addressCount} addresses`)
 
-    const accountsFrontiers = await rpc({
-      action: 'accountsFrontiers',
-      accounts: addresses,
-      url: argv.rcp2
-    })
+    const accountsFrontiers = await rpc(
+      {
+        action: 'accountsFrontiers',
+        accounts: addresses
+      },
+      {
+        url: argv.rcp2
+      }
+    )
 
     const hashes = Object.values(accountsFrontiers.frontiers)
-    const blocksInfo = await rpc({
-      action: 'blocksInfo',
-      hashes,
-      url: argv.rpc2
-    })
+    const blocksInfo = await rpc(
+      {
+        action: 'blocksInfo',
+        hashes
+      },
+      {
+        url: argv.rpc2
+      }
+    )
 
     const frontiers = Object.values(blocksInfo.blocks)
 

@@ -16,13 +16,17 @@ const run = async () => {
   let length
   let key
   do {
-    const res = await rpc({
-      action: 'unchecked_keys',
-      key,
-      url,
-      count: LIMIT,
-      json_block: true
-    })
+    const res = await rpc(
+      {
+        action: 'unchecked_keys',
+        key,
+        count: LIMIT,
+        json_block: true
+      },
+      {
+        url
+      }
+    )
 
     // push all but first to csv
     const blocks = res.unchecked.slice(1)

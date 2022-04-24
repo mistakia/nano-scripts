@@ -26,12 +26,16 @@ const generate_blockA = async ({ account_info, privateKey, workerUrl }) => {
     work: '0000000000000000'
   }
   const signed_blockA = block.representative(blockA, privateKey)
-  const workA_res = await rpc({
-    action: 'work_generate',
-    hash: account_info.frontier,
-    difficulty: constants.WORK_THRESHOLD_BETA,
-    url: workerUrl
-  })
+  const workA_res = await rpc(
+    {
+      action: 'work_generate',
+      hash: account_info.frontier,
+      difficulty: constants.WORK_THRESHOLD_BETA
+    },
+    {
+      url: workerUrl
+    }
+  )
 
   signed_blockA.representative =
     'nano_1111111111111111111111111111111111111111111111111111hifc8npp'
@@ -58,12 +62,16 @@ const generate_blockB = async ({
     work: '0000000000000000'
   }
   const signed_blockB = block.representative(blockB, privateKey)
-  const workB_res = await rpc({
-    action: 'work_generate',
-    hash: blockA_hash,
-    difficulty: constants.WORK_THRESHOLD_BETA,
-    url: workerUrl
-  })
+  const workB_res = await rpc(
+    {
+      action: 'work_generate',
+      hash: blockA_hash,
+      difficulty: constants.WORK_THRESHOLD_BETA
+    },
+    {
+      url: workerUrl
+    }
+  )
 
   signed_blockB.work = workB_res.work
 
@@ -102,7 +110,7 @@ const run = async ({
   publish = false
 }) => {
   // get account
-  const account_info = await rpc({ action: 'account_info', account, url })
+  const account_info = await rpc({ action: 'account_info', account }, { url })
   account_info.account = account
   log(account_info)
 
@@ -162,7 +170,7 @@ const run = async ({
   await queue.onIdle()
 
   if (publish) {
-    await rpc({ action: 'process', block: blockA, url })
+    await rpc({ action: 'process', block: blockA }, { url })
     log(`published blockA: ${blockA_hash}`)
     log(blockA)
   }
@@ -194,12 +202,16 @@ if (isMain && isMainThread) {
   parentPort.once('message', async (params) => {
     try {
       const fork = generate_fork(params)
-      await rpc({
-        action: 'process',
-        block: fork,
-        url: params.url,
-        async: true
-      })
+      await rpc(
+        {
+          action: 'process',
+          block: fork,
+          async: true
+        },
+        {
+          url: params.url
+        }
+      )
       parentPort.postMessage(fork)
     } catch (err) {
       parentPort.postMessage(err)
