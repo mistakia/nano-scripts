@@ -8,15 +8,14 @@ import * as nanocurrency from 'nanocurrency'
 import crypto from 'crypto'
 import fs from 'fs-extra'
 
-import NanoNode from '../../nano-node-light/lib/nano-node.js'
-import * as nodeConstants from '../../nano-node-light/common/constants.js'
+import NanoNode, { NanoConstants } from 'nano-node-light'
 
 import { isMain, constants } from '#common'
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const argv = yargs(hideBin(process.argv)).argv
-const log = debug('template')
-debug.enable('*')
+const log = debug('measure-saturation')
+debug.enable('measure-saturation')
 
 const getWebsocket = (wsUrl) =>
   new Promise((resolve, reject) => {
@@ -217,7 +216,7 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
   const num_accounts = 5000
   const accounts = wallet.legacyAccounts(seed, start, num_accounts)
   const main_account = accounts.shift()
-  log(`main account: ${main_account.address}`)
+  log(`account #0: ${main_account.address}`)
 
   ws.send(
     JSON.stringify({
@@ -354,6 +353,7 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
   // valid previous matches frontiers
   if (!cache || cache.account !== main_account.address) {
     log('Block cache not found, generating change blocks')
+    const blockGenerationStart = process.hrtime.bigint()
 
     // create 5k change blocks (1 per account)
     const res = await rpc(
@@ -394,7 +394,16 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
         encoded: encoded.toString('hex'),
         hash: nanocurrency.hashBlock(changeBlock)
       })
+
+      process.stdout.clearLine()
+      process.stdout.cursorTo(0)
+      process.stdout.write(`Generating change Blocks: ${i}/${accounts.length}`)
     }
+
+    process.stdout.write('\n')
+    const blockGenerationEnd = process.hrtime.bigint()
+    const blockGenerationDuration = (blockGenerationEnd - blockGenerationStart) / BigInt(1e9)
+    log(`Block generation duration: ${Number(blockGenerationDuration).toFixed(2)} secs`)
 
     // save to disk
     cache = {
@@ -406,17 +415,21 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
     })
   }
 
-  const network = nodeConstants.NETWORK.BETA
-  const node = new NanoNode({ network })
+  const network = NanoConstants.NETWORK.BETA
+  const node = new NanoNode({ network, maxPeers: 1 })
 
   node.on('error', (error) => {
-    console.log(error)
+    // console.log(error)
   })
 
   node.connect({
     address: '::ffff:194.146.12.171', //network.ADDRESS,
     port: '54000' // network.PORT
   })
+
+  await wait(5000)
+
+  log(`Connected peers: ${node.peers.size}`)
 
   // new websocket subscription
   ws.send(
@@ -426,9 +439,11 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
     })
   )
 
+  await wait(5000)
+
   // sample time
   const startTime = process.hrtime.bigint()
-  log(`Start Time: ${startTime}`)
+  log(`Start time: ${startTime}`)
 
   let confirmation_counter = 0
   let endTime
@@ -440,41 +455,33 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
     confirmation_counter += 1
     process.stdout.clearLine()
     process.stdout.cursorTo(0)
-    process.stdout.write(`${confirmation_counter}/${num_accounts}`)
+    process.stdout.write(`Observed Confirmations: ${confirmation_counter}/${num_accounts}`)
 
     if (confirmation_counter === num_accounts) {
+      process.stdout.write('\n')
       endTime = process.hrtime.bigint()
-      console.log(startTime)
-      console.log(broadcastEndTime)
-      console.log(endTime)
+      log(`End time: ${endTime}`)
+      const totalDurationSecs = Number((endTime - startTime) / BigInt(1e9))
+      log(`Total duration: ${totalDurationSecs.toFixed(2)} secs`)
+      log(`Observed saturation: ${(num_accounts / totalDurationSecs).toFixed(2)} blocks/sec`)
 
       process.exit()
     }
   })
 
-  await wait(5000)
-
-  log(`Node Peers: ${node.peers.size}`)
-
   // broadcast blocks
+  const peerCount = 1
   for (const block of cache.blocks) {
     const buf = Buffer.from(block.encoded, 'hex')
 
-    node.publish(buf)
-    await wait(3)
-
-    /* const action = {
-     *   action: 'process',
-     *   json_block: true,
-     *   block: block.json
-     * }
-     * const res = await rpc(action, { url })
-     * log(res) */
+    node.publish(buf, peerCount)
   }
 
   // sample time
   broadcastEndTime = process.hrtime.bigint()
-  log(`Broadcast End Time: ${broadcastEndTime}`)
+  log(`Broadcast end time: ${broadcastEndTime}`)
+  const broadcastDurationSecs = (broadcastEndTime - startTime) / BigInt(1e9)
+  log(`Broadcast duration: ${Number(broadcastDurationSecs).toFixed(2)} secs`)
 }
 
 const main = async () => {

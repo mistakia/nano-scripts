@@ -2123,15 +2123,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"nano-node-light@npm:^0.0.1":
+"nano-node-light@mistakia/nano-node-light#chore/export-nano-node":
   version: 0.0.1
-  resolution: "nano-node-light@npm:0.0.1"
+  resolution: "nano-node-light@https://github.com/mistakia/nano-node-light.git#commit=a1145453c88b7450fe6629f487117a5eaef43f2b"
   dependencies:
     blake2: ^4.1.1
     debug: ^4.3.4
     ip6addr: ^0.2.5
     yargs: ^17.4.0
-  checksum: 5000273aac347c991d8423b3ce6d733fddc8a018b3d4b0d5d6eed534f052866cc39ac6984464a5ec92d730f70d44f44e3b57bc4a38337bc94fc430d3a5898890
+  checksum: 4fed25af356bbba44036cb7e14460a640e5ed3cebdbe7882631ed797f68f2dc20fe77c1a6ab2770c413d4ce73b376d7c2bc3cfeea56acbc23ea98e348b61dc7a
   languageName: node
   linkType: hard
 
@@ -2583,7 +2583,7 @@ __metadata:
     eslint-plugin-node: ^11.1.0
     eslint-plugin-promise: ^6.0.0
     fs-extra: ^10.1.0
-    nano-node-light: ^0.0.1
+    nano-node-light: "mistakia/nano-node-light#chore/export-nano-node"
     nano-rpc: ^0.0.1
     nanocurrency: ^2.5.0
     nanocurrency-web: ^1.3.6
