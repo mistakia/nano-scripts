@@ -28,27 +28,17 @@ const getWebsocket = (wsUrl) =>
     ws.on('error', (error) => reject(error))
   })
 
-function setBalance(buffer, balanceStr, offset) {
-  const balance = BigInt(balanceStr);
-  buffer.writeBigUInt64BE(
-    balance >> 64n,
-    offset
-  );
-  buffer.writeBigUInt64BE(
-    balance & 0xffffffffffffffffn,
-    offset + 8
-  );
-}
-
 const encodeBlock = (block) => {
   const buf = Buffer.alloc(216)
   buf.write(nanocurrency.derivePublicKey(block.account), 0, 32, 'hex')
   buf.write(block.previous, 32, 32, 'hex')
-  buf.write(nanocurrency.derivePublicKey(block.representative), 64, 32 ,'hex')
-  setBalance(buf, block.balance, 96)
+  buf.write(nanocurrency.derivePublicKey(block.representative), 64, 32, 'hex')
+  const balance = BigInt(block.balance)
+  buf.writeBigUInt64BE(balance >> 64n, 96)
+  buf.writeBigUInt64BE(balance & 0xffffffffffffffffn, 104)
   buf.write(block.link, 112, 32, 'hex')
   buf.write(block.signature, 144, 64, 'hex')
-  buf.write(block.work, 208, 8, 'hex')
+  buf.writeBigUInt64BE(BigInt('0x' + block.work), 208)
   return buf
 }
 
@@ -398,9 +388,12 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
         privateKey: accounts[i].privateKey,
         workerUrl
       })
-      console.log(changeBlock)
       const encoded = encodeBlock(changeBlock)
-      blocks.push(encoded.toString('hex'))
+      blocks.push({
+        json: changeBlock,
+        encoded: encoded.toString('hex'),
+        hash: nanocurrency.hashBlock(changeBlock)
+      })
     }
 
     // save to disk
@@ -421,8 +414,8 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
   })
 
   node.connect({
-    address: network.ADDRESS,
-    port: network.PORT
+    address: '::ffff:194.146.12.171', //network.ADDRESS,
+    port: '54000' // network.PORT
   })
 
   // new websocket subscription
@@ -459,20 +452,21 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
     }
   })
 
-  await wait(3000)
+  await wait(5000)
 
   log(`Node Peers: ${node.peers.size}`)
 
   // broadcast blocks
   for (const block of cache.blocks) {
-    const buf = Buffer.isBuffer(block) ? block : Buffer.from(block, 'hex')
+    const buf = Buffer.from(block.encoded, 'hex')
 
     node.publish(buf)
+    await wait(3)
+
     /* const action = {
      *   action: 'process',
      *   json_block: true,
-     *   async: true,
-     *   block
+     *   block: block.json
      * }
      * const res = await rpc(action, { url })
      * log(res) */
