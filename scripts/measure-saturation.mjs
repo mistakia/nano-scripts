@@ -221,10 +221,7 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
   ws.send(
     JSON.stringify({
       action: 'subscribe',
-      topic: 'confirmation',
-      options: {
-        accounts: [main_account.address]
-      }
+      topic: 'confirmation'
     })
   )
 
@@ -423,23 +420,13 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
   })
 
   node.connect({
-    address: '::ffff:194.146.12.171', //network.ADDRESS,
-    port: '54000' // network.PORT
+    address: '::ffff:116.202.107.97',
+    port: '54000'
   })
 
   await wait(5000)
 
   log(`Connected peers: ${node.peers.size}`)
-
-  // new websocket subscription
-  ws.send(
-    JSON.stringify({
-      action: 'subscribe',
-      topic: 'confirmation'
-    })
-  )
-
-  await wait(5000)
 
   // sample time
   const startTime = process.hrtime.bigint()
