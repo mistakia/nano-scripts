@@ -1,16 +1,15 @@
 import debug from 'debug'
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
-import { wallet, block } from 'nanocurrency-web'
-import rpc from 'nano-rpc'
+import { wallet } from 'nanocurrency-web'
+import { rpc, utils } from 'nano-rpc'
 import WebSocket from 'ws'
 import * as nanocurrency from 'nanocurrency'
-import crypto from 'crypto'
 import fs from 'fs-extra'
 
 import NanoNode, { NanoConstants } from 'nano-node-light'
 
-import { isMain, constants } from '#common'
+import { isMain, resultsPath } from '#common'
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const argv = yargs(hideBin(process.argv)).argv
@@ -40,174 +39,6 @@ const encodeBlock = (block) => {
   buf.writeBigUInt64BE(BigInt('0x' + block.work), 208)
   return buf
 }
-
-const createSendBlock = async ({
-  accountInfo,
-  to,
-  amount,
-  privateKey,
-  workerUrl
-}) => {
-  const data = {
-    walletBalanceRaw: accountInfo.balance,
-    fromAddress: accountInfo.account,
-    toAddress: to,
-    representativeAddress: constants.BURN_ACCOUNT,
-    frontier: accountInfo.frontier,
-    amountRaw: amount
-  }
-
-  const action = {
-    action: 'work_generate',
-    hash: accountInfo.frontier,
-    difficulty: constants.WORK_THRESHOLD_BETA
-  }
-  const res = await rpc(action, { url: workerUrl })
-
-  data.work = res.work
-
-  return block.send(data, privateKey)
-}
-
-const createReceiveBlock = async ({
-  accountInfo,
-  hash,
-  amount,
-  privateKey,
-  workerUrl
-}) => {
-  const data = {
-    walletBalanceRaw: accountInfo.balance,
-    toAddress: accountInfo.account,
-    representativeAddress: constants.BURN_ACCOUNT,
-    frontier: accountInfo.frontier,
-    transactionHash: hash,
-    amountRaw: amount
-  }
-
-  const action = {
-    action: 'work_generate',
-    hash: accountInfo.frontier,
-    difficulty: constants.WORK_THRESHOLD_BETA
-  }
-  const res = await rpc(action, { url: workerUrl })
-
-  data.work = res.work
-
-  return block.receive(data, privateKey)
-}
-
-const createOpenBlock = async ({
-  account,
-  hash,
-  amount,
-  publicKey,
-  privateKey,
-  workerUrl
-}) => {
-  const data = {
-    walletBalanceRaw: '0',
-    toAddress: account,
-    representativeAddress: constants.BURN_ACCOUNT,
-    frontier: constants.ZEROS,
-    transactionHash: hash,
-    amountRaw: amount
-  }
-
-  const action = {
-    action: 'work_generate',
-    hash: publicKey,
-    difficulty: constants.WORK_THRESHOLD_BETA
-  }
-  const res = await rpc(action, { url: workerUrl })
-
-  data.work = res.work
-
-  return block.receive(data, privateKey)
-}
-
-const createChangeBlock = async ({
-  accountInfo,
-  rep,
-  privateKey,
-  workerUrl
-}) => {
-  const data = {
-    walletBalanceRaw: accountInfo.balance,
-    address: accountInfo.account,
-    representativeAddress: rep,
-    frontier: accountInfo.frontier
-  }
-
-  const res = await rpc(
-    {
-      action: 'work_generate',
-      hash: accountInfo.frontier,
-      difficulty: constants.WORK_THRESHOLD_BETA
-    },
-    {
-      url: workerUrl
-    }
-  )
-
-  data.work = res.work
-
-  return block.representative(data, privateKey)
-}
-
-// broadcasts a block and waits for its confirmation
-const confirmBlock = ({ ws, block, hash, url }) =>
-  new Promise((resolve, reject) => {
-    // register confirmation listener
-    const listener = (data) => {
-      console.log(JSON.parse(data))
-      const d = JSON.parse(data)
-      if (d.topic !== 'confirmation') return
-      if (d.message.hash !== hash) return
-
-      // update websocket subscription
-      ws.send(
-        JSON.stringify({
-          action: 'update',
-          topic: 'confirmation',
-          options: {
-            accounts_del: [block.account]
-          }
-        })
-      )
-
-      // unregister event listener
-      ws.off('message', listener)
-
-      resolve(hash)
-    }
-
-    ws.on('message', listener)
-
-    // register node websocket subscription
-    ws.send(
-      JSON.stringify({
-        action: 'update',
-        topic: 'confirmation',
-        options: {
-          accounts_add: [block.account]
-        }
-      })
-    )
-
-    // broadcast block
-    rpc(
-      {
-        action: 'process',
-        json_block: true,
-        async: true,
-        block
-      },
-      {
-        url
-      }
-    )
-  })
 
 const run = async ({ seed, url, wsUrl, workerUrl }) => {
   const ws = await getWebsocket(wsUrl)
@@ -254,8 +85,8 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
     action: 'accounts_frontiers',
     accounts: accounts.map((a) => a.address)
   }
-  const res2 = await rpc(action, { url })
-  const frontier_hashes = Object.values(res2.frontiers)
+  const res = await rpc(action, { url })
+  const frontier_hashes = Object.values(res.frontiers)
   const unopened_count = frontier_hashes.filter(
     (f) => f === 'error: Account not found'
   ).length
@@ -286,7 +117,7 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
       let sendBlock
       let sendHash
       if (!res3.blocks || !res3.blocks.length) {
-        sendBlock = await createSendBlock({
+        sendBlock = await utils.createSendBlock({
           accountInfo: {
             ...main_account_info,
             frontier: mainFrontier,
@@ -312,12 +143,10 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
             url
           }
         )
-
-        // await confirmBlock({ ws, block: sendBlock, hash: sendHash, url })
       }
 
       // create open for account
-      const openBlock = await createOpenBlock({
+      const openBlock = await utils.createOpenBlock({
         account,
         hash: sendHash || res3.blocks[0],
         amount,
@@ -325,7 +154,6 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
         privateKey: accounts[i].privateKey,
         workerUrl
       })
-      const openHash = nanocurrency.hashBlock(openBlock)
 
       await rpc(
         {
@@ -338,86 +166,65 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
           url
         }
       )
-
-      //await confirmBlock({ ws, block: openBlock, hash: openHash, url })
     }
   }
 
-  // check disk for cache of blocks
-  const file = './saturation-cache.json'
-  let cache = fs.pathExistsSync(file) ? fs.readJsonSync(file) : null
+  // create 5k change blocks (1 per account)
+  log('Generating change blocks')
+  const blockGenerationStart = process.hrtime.bigint()
 
-  // valid previous matches frontiers
-  if (!cache || cache.account !== main_account.address) {
-    log('Block cache not found, generating change blocks')
-    const blockGenerationStart = process.hrtime.bigint()
+  const action2 = {
+    action: 'blocks_info',
+    json_block: true,
+    include_not_found: true,
+    hashes: frontier_hashes
+  }
+  const res2 = await rpc(action2, { url })
 
-    // create 5k change blocks (1 per account)
-    const res = await rpc(
-      {
-        action: 'blocks_info',
-        json_block: true,
-        include_not_found: true,
-        hashes: frontier_hashes
+  const blocks = []
+  for (let i = 0; i < accounts.length; i++) {
+    const account = accounts[i].address
+    const frontier = frontier_hashes[i]
+    const frontierBlock = res2.blocks[frontier]
+
+    const derived_rep_from_frontier = nanocurrency
+      .deriveAddress(frontier)
+      .replace('xrb_', 'nano_')
+
+    const changeBlock = await utils.createChangeBlock({
+      accountInfo: {
+        balance: frontierBlock.balance,
+        frontier,
+        account
       },
-      {
-        url
-      }
-    )
-
-    const blocks = []
-    for (let i = 0; i < accounts.length; i++) {
-      const account = accounts[i].address
-      const frontier = frontier_hashes[i]
-      const frontierBlock = res.blocks[frontier]
-
-      const derived_rep_from_frontier = nanocurrency
-        .deriveAddress(frontier)
-        .replace('xrb_', 'nano_')
-
-      const changeBlock = await createChangeBlock({
-        accountInfo: {
-          balance: frontierBlock.balance,
-          frontier,
-          account
-        },
-        rep: derived_rep_from_frontier,
-        privateKey: accounts[i].privateKey,
-        workerUrl
-      })
-      const encoded = encodeBlock(changeBlock)
-      blocks.push({
-        json: changeBlock,
-        encoded: encoded.toString('hex'),
-        hash: nanocurrency.hashBlock(changeBlock)
-      })
-
-      process.stdout.clearLine()
-      process.stdout.cursorTo(0)
-      process.stdout.write(`Generating change Blocks: ${i}/${accounts.length}`)
-    }
-
-    process.stdout.write('\n')
-    const blockGenerationEnd = process.hrtime.bigint()
-    const blockGenerationDuration = (blockGenerationEnd - blockGenerationStart) / BigInt(1e9)
-    log(`Block generation duration: ${Number(blockGenerationDuration).toFixed(2)} secs`)
-
-    // save to disk
-    cache = {
-      account: main_account.address,
-      blocks
-    }
-    fs.writeJsonSync(file, cache, {
-      spaces: 2
+      rep: derived_rep_from_frontier,
+      privateKey: accounts[i].privateKey,
+      workerUrl
     })
+    const encoded = encodeBlock(changeBlock)
+    blocks.push({
+      json: changeBlock,
+      encoded: encoded.toString('hex'),
+      hash: nanocurrency.hashBlock(changeBlock)
+    })
+
+    process.stdout.clearLine()
+    process.stdout.cursorTo(0)
+    process.stdout.write(`Generating change Blocks: ${i}/${accounts.length}`)
   }
+
+  process.stdout.write('\n')
+  const blockGenerationEnd = process.hrtime.bigint()
+  const blockGenerationDuration =
+    (blockGenerationEnd - blockGenerationStart) / BigInt(1e9)
+  log(
+    `Block generation duration: ${Number(blockGenerationDuration).toFixed(
+      2
+    )} secs`
+  )
 
   const network = NanoConstants.NETWORK.BETA
   const node = new NanoNode({ network, maxPeers: 1 })
-
-  node.on('error', (error) => {
-    // console.log(error)
-  })
 
   node.connect({
     address: '::ffff:116.202.107.97',
@@ -434,7 +241,6 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
 
   let confirmation_counter = 0
   let endTime
-  let broadcastEndTime
   ws.on('message', (data) => {
     const d = JSON.parse(data)
 
@@ -442,7 +248,9 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
     confirmation_counter += 1
     process.stdout.clearLine()
     process.stdout.cursorTo(0)
-    process.stdout.write(`Observed Confirmations: ${confirmation_counter}/${num_accounts}`)
+    process.stdout.write(
+      `Observed Confirmations: ${confirmation_counter}/${num_accounts}`
+    )
 
     if (confirmation_counter === num_accounts) {
       process.stdout.write('\n')
@@ -450,7 +258,35 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
       log(`End time: ${endTime}`)
       const totalDurationSecs = Number((endTime - startTime) / BigInt(1e9))
       log(`Total duration: ${totalDurationSecs.toFixed(2)} secs`)
-      log(`Observed saturation: ${(num_accounts / totalDurationSecs).toFixed(2)} blocks/sec`)
+      log(
+        `Observed saturation: ${(num_accounts / totalDurationSecs).toFixed(
+          2
+        )} blocks/sec`
+      )
+
+      const file = `${resultsPath}/measure-saturation.json`
+      fs.ensureFileSync(file)
+      const results = fs.readJsonSync(file, { throws: false }) || { data: [] }
+
+      const result = {
+        num_accounts,
+        startTime: startTime.toString(),
+        endTime: endTime.toString(),
+        totalDurationSecs,
+        cps: num_accounts / totalDurationSecs,
+        timestamp: Math.floor(Date.now() / 10000)
+      }
+
+      log(`Savings results: ${file}`)
+      fs.writeJsonSync(
+        file,
+        {
+          data: [result, ...results.data]
+        },
+        {
+          spaces: 2
+        }
+      )
 
       process.exit()
     }
@@ -458,14 +294,14 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
 
   // broadcast blocks
   const peerCount = 1
-  for (const block of cache.blocks) {
+  for (const block of blocks) {
     const buf = Buffer.from(block.encoded, 'hex')
 
     node.publish(buf, peerCount)
   }
 
   // sample time
-  broadcastEndTime = process.hrtime.bigint()
+  const broadcastEndTime = process.hrtime.bigint()
   log(`Broadcast end time: ${broadcastEndTime}`)
   const broadcastDurationSecs = (broadcastEndTime - startTime) / BigInt(1e9)
   log(`Broadcast duration: ${Number(broadcastDurationSecs).toFixed(2)} secs`)

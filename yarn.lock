@@ -534,7 +534,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"blakejs@npm:^1.1.0":
+"blakejs@npm:1.2.1, blakejs@npm:^1.1.0":
   version: 1.2.1
   resolution: "blakejs@npm:1.2.1"
   checksum: d699ba116cfa21d0b01d12014a03e484dd76d483133e6dc9eb415aa70a119f08beb3bcefb8c71840106a00b542cba77383f8be60cd1f0d4589cb8afb922eefbe
@@ -572,6 +572,13 @@ __metadata:
   bin:
     browserslist: cli.js
   checksum: 18e09beeae32e69fea45fc3642240fb63027b1460d90e24da86377177dca3d82c80f8fa44469d95109e3962f08eb2a23e03037bd5e1f1ec38e4866e2a8572435
+  languageName: node
+  linkType: hard
+
+"byte-base64@npm:1.1.0":
+  version: 1.1.0
+  resolution: "byte-base64@npm:1.1.0"
+  checksum: 95851fc758882ba6b28422d70c685f86257eb635be10eb37528765f39fc1c8766972f9bb39e0684539fafc7d9625145d26e5ab310a52c9eb9df3506952586e0c
   languageName: node
   linkType: hard
 
@@ -2135,12 +2142,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"nano-rpc@npm:^0.0.1":
+"nano-rpc@mistakia/nano-rpc#70dc861b016be5f1599fa3ead8a1dc451508388d":
   version: 0.0.1
-  resolution: "nano-rpc@npm:0.0.1"
+  resolution: "nano-rpc@https://github.com/mistakia/nano-rpc.git#commit=70dc861b016be5f1599fa3ead8a1dc451508388d"
   dependencies:
     cross-fetch: ^3.1.5
-  checksum: 662ea542f2a39a2a2f2c8e55f843eb7d8ba1ea05005547f9ce7bc4d21dc410098bc0590139ba3d644bb707e95c4117c9899bf678bf555dfb71cae4a08cffed36
+    nanocurrency-web: ^1.4.2
+  checksum: 095aff1c16f3d557fd819e90d94e38b740c7d6875b09101aafb42ad36687672cf0e0fc818b68e9001100a1838864d20d4b94fdf27ca41670d70c4c4ed0e54f7a
   languageName: node
   linkType: hard
 
@@ -2152,6 +2160,18 @@ __metadata:
     blakejs: 1.1.1
     crypto-js: 3.1.9-1
   checksum: a34d98527c6b927e3e77c5fe1e0aae97c535bb5b05595a571597d7b9b3ace20f93c062550a413718b19a4228a28fd6dab3337ecdb445c7d3d67c5c5fdf27d726
+  languageName: node
+  linkType: hard
+
+"nanocurrency-web@npm:^1.4.2":
+  version: 1.4.2
+  resolution: "nanocurrency-web@npm:1.4.2"
+  dependencies:
+    bignumber.js: 9.0.2
+    blakejs: 1.2.1
+    byte-base64: 1.1.0
+    crypto-js: 3.1.9-1
+  checksum: b80f74f1345bba3fa3f5ceaebc88dd5b81413eac4da33eaf782e0059f24f4a02b4c2a82c9f674324389ef03140f5570353f42d65236c71bebf17eb9215136e23
   languageName: node
   linkType: hard
 
@@ -2584,7 +2604,7 @@ __metadata:
     eslint-plugin-promise: ^6.0.0
     fs-extra: ^10.1.0
     nano-node-light: "mistakia/nano-node-light#chore/export-nano-node"
-    nano-rpc: ^0.0.1
+    nano-rpc: "mistakia/nano-rpc#70dc861b016be5f1599fa3ead8a1dc451508388d"
     nanocurrency: ^2.5.0
     nanocurrency-web: ^1.3.6
     node-fetch: ^3.2.3

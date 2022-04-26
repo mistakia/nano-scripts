@@ -4,8 +4,9 @@ import fs from 'fs-extra'
 import rpc from 'nano-rpc'
 import dayjs from 'dayjs'
 import debug from 'debug'
+import { constants } from 'nano-rpc'
 
-import { isMain, constants } from '#common'
+import { isMain } from '#common'
 
 const argv = yargs(hideBin(process.argv)).argv
 

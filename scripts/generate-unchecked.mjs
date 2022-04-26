@@ -8,9 +8,9 @@ import { Worker, isMainThread, parentPort } from 'worker_threads'
 import { fileURLToPath } from 'url'
 import PQueue from 'p-queue'
 import os from 'os'
-import rpc from 'nano-rpc'
+import { rpc, constants } from 'nano-rpc'
 
-import { isMain, constants } from '#common'
+import { isMain } from '#common'
 
 const argv = yargs(hideBin(process.argv)).argv
 const log = debug('template')

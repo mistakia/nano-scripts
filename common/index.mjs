@@ -1,7 +1,6 @@
 import { fileURLToPath } from 'url'
+import path from 'path'
 
-import * as constants from './constants.mjs'
-
+const __dirname = fileURLToPath(import.meta.url)
+export const resultsPath = path.join(__dirname, '..', '..', 'results')
 export const isMain = () => process.argv[1] === fileURLToPath(import.meta.url)
-
-export { constants }
