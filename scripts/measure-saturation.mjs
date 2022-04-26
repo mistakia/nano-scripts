@@ -208,9 +208,11 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
       hash: nanocurrency.hashBlock(changeBlock)
     })
 
-    process.stdout.clearLine()
-    process.stdout.cursorTo(0)
-    process.stdout.write(`Generating change Blocks: ${i}/${accounts.length}`)
+    if (process.stdout.clearLine) {
+      process.stdout.clearLine()
+      process.stdout.cursorTo(0)
+      process.stdout.write(`Generating change Blocks: ${i}/${accounts.length}`)
+    }
   }
 
   process.stdout.write('\n')
@@ -245,12 +247,15 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
     const d = JSON.parse(data)
 
     if (d.topic !== 'confirmation') return
+
     confirmation_counter += 1
-    process.stdout.clearLine()
-    process.stdout.cursorTo(0)
-    process.stdout.write(
-      `Observed Confirmations: ${confirmation_counter}/${num_accounts}`
-    )
+    if (process.stdout.clearLine) {
+      process.stdout.clearLine()
+      process.stdout.cursorTo(0)
+      process.stdout.write(
+        `Observed Confirmations: ${confirmation_counter}/${num_accounts}`
+      )
+    }
 
     if (confirmation_counter === num_accounts) {
       process.stdout.write('\n')
@@ -293,18 +298,34 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
   })
 
   // broadcast blocks
-  const peerCount = 1
+  const [key] = node.peers.keys()
+  const peer = node.peers.get(key)
+
+  let writeCounter = 0
+  const onSent = () => {
+    writeCounter += 1
+    if (writeCounter === num_accounts) {
+      const broadcastEndTime = process.hrtime.bigint()
+      log(`Broadcast end time: ${broadcastEndTime}`)
+      const broadcastDurationSecs = (broadcastEndTime - startTime) / BigInt(1e9)
+      log(
+        `Broadcast duration: ${Number(broadcastDurationSecs).toFixed(2)} secs`
+      )
+    }
+  }
+
+  // const peerCount = 1
   for (const block of blocks) {
     const buf = Buffer.from(block.encoded, 'hex')
 
-    node.publish(buf, peerCount)
+    // node.publish(buf, peerCount)
+    peer.socket.sendMessage({
+      messageType: NanoConstants.MESSAGE_TYPE.PUBLISH,
+      message: buf,
+      extensions: 0x600,
+      onSent
+    })
   }
-
-  // sample time
-  const broadcastEndTime = process.hrtime.bigint()
-  log(`Broadcast end time: ${broadcastEndTime}`)
-  const broadcastDurationSecs = (broadcastEndTime - startTime) / BigInt(1e9)
-  log(`Broadcast duration: ${Number(broadcastDurationSecs).toFixed(2)} secs`)
 }
 
 const main = async () => {
@@ -324,6 +345,11 @@ const main = async () => {
       log('missing --worker-url')
       return
     }
+
+    // kill after 5 mins (if it hangs for whatever reason)
+    setTimeout(() => {
+      process.exit()
+    }, 300000)
 
     await run({
       seed: argv.seed,

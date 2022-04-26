@@ -11,7 +11,7 @@
     "dayjs": "^1.11.1",
     "debug": "^4.3.4",
     "fs-extra": "^10.1.0",
-    "nano-node-light": "mistakia/nano-node-light#chore/export-nano-node",
+    "nano-node-light": "mistakia/nano-node-light#feat/socket-drain",
     "nano-rpc": "mistakia/nano-rpc#70dc861b016be5f1599fa3ead8a1dc451508388d",
     "nanocurrency": "^2.5.0",
     "nanocurrency-web": "^1.3.6",
