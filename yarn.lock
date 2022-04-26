@@ -2130,15 +2130,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"nano-node-light@mistakia/nano-node-light#feat/socket-drain":
+"nano-node-light@mistakia/nano-node-light#b2cec133fd2008fa97d2145f08287bcb623e56c3":
   version: 0.0.1
-  resolution: "nano-node-light@https://github.com/mistakia/nano-node-light.git#commit=4dab49fbf7e7ea5e86067e254fa21db6486e1158"
+  resolution: "nano-node-light@https://github.com/mistakia/nano-node-light.git#commit=b2cec133fd2008fa97d2145f08287bcb623e56c3"
   dependencies:
     blake2: ^4.1.1
     debug: ^4.3.4
     ip6addr: ^0.2.5
     yargs: ^17.4.0
-  checksum: 0dc7d2db37d20f7173b7b7d52459ebb106fbfe69f64156b4f463e32f8b32328767d4ce2cd1f136185c577a7e74b59adf740d58f7602a5f338384410d7061926d
+  checksum: 5522dfa11f417c26c84149897cd788f0d1b259a7b0e7b6ce9ac6cdfbc58c55b687e7be9d1a7dc642715d584ac9e2c39220229f82710c80fa03fa5b58a2d484b2
   languageName: node
   linkType: hard
 
@@ -2603,7 +2603,7 @@ __metadata:
     eslint-plugin-node: ^11.1.0
     eslint-plugin-promise: ^6.0.0
     fs-extra: ^10.1.0
-    nano-node-light: "mistakia/nano-node-light#feat/socket-drain"
+    nano-node-light: "mistakia/nano-node-light#b2cec133fd2008fa97d2145f08287bcb623e56c3"
     nano-rpc: "mistakia/nano-rpc#70dc861b016be5f1599fa3ead8a1dc451508388d"
     nanocurrency: ^2.5.0
     nanocurrency-web: ^1.3.6
