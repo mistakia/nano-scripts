@@ -49,13 +49,6 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
   const main_account = accounts.shift()
   log(`account #0: ${main_account.address}`)
 
-  ws.send(
-    JSON.stringify({
-      action: 'subscribe',
-      topic: 'confirmation'
-    })
-  )
-
   const main_account_info = await rpc(
     {
       action: 'account_info',
@@ -201,10 +194,9 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
       privateKey: accounts[i].privateKey,
       workerUrl
     })
-    const encoded = encodeBlock(changeBlock)
     blocks.push({
       json: changeBlock,
-      encoded: encoded.toString('hex'),
+      encoded: encodeBlock(changeBlock),
       hash: nanocurrency.hashBlock(changeBlock)
     })
 
@@ -226,12 +218,23 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
   )
 
   const network = NanoConstants.NETWORK.BETA
-  const node = new NanoNode({ network, maxPeers: 1 })
+  const node = new NanoNode({ network, maxPeers: Infinity })
+
+  node.on('error', () => {
+    // ignore
+  })
 
   node.connect({
     address: '::ffff:116.202.107.97',
     port: '54000'
   })
+
+  ws.send(
+    JSON.stringify({
+      action: 'subscribe',
+      topic: 'confirmation'
+    })
+  )
 
   await wait(5000)
 
@@ -239,9 +242,10 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
 
   // sample time
   const startTime = process.hrtime.bigint()
-  log(`Start time: ${startTime}`)
+  log(`Broadcast start time: ${startTime}`)
 
   let confirmation_counter = 0
+  let broadcastEndTime
   let endTime
   ws.on('message', (data) => {
     const d = JSON.parse(data)
@@ -261,7 +265,9 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
       process.stdout.write('\n')
       endTime = process.hrtime.bigint()
       log(`End time: ${endTime}`)
-      const totalDurationSecs = Number((endTime - startTime) / BigInt(1e9))
+      const totalDurationSecs = Number(
+        (endTime - broadcastEndTime) / BigInt(1e9)
+      )
       log(`Total duration: ${totalDurationSecs.toFixed(2)} secs`)
       log(
         `Observed saturation: ${(num_accounts / totalDurationSecs).toFixed(
@@ -298,14 +304,17 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
   })
 
   // broadcast blocks
-  const [key] = node.peers.keys()
-  const peer = node.peers.get(key)
+  const writeCounter = {}
+  const onSent = (peerAddress) => {
+    if (writeCounter[peerAddress]) {
+      writeCounter[peerAddress] += 1
+    } else {
+      writeCounter[peerAddress] = 1
+    }
 
-  let writeCounter = 0
-  const onSent = () => {
-    writeCounter += 1
-    if (writeCounter === num_accounts) {
-      const broadcastEndTime = process.hrtime.bigint()
+    // sample time when first peer receives all blocks
+    if (writeCounter[peerAddress] === num_accounts && !broadcastEndTime) {
+      broadcastEndTime = process.hrtime.bigint()
       log(`Broadcast end time: ${broadcastEndTime}`)
       const broadcastDurationSecs = (broadcastEndTime - startTime) / BigInt(1e9)
       log(
@@ -314,17 +323,15 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
     }
   }
 
-  // const peerCount = 1
   for (const block of blocks) {
-    const buf = Buffer.from(block.encoded, 'hex')
-
-    // node.publish(buf, peerCount)
-    peer.socket.sendMessage({
-      messageType: NanoConstants.MESSAGE_TYPE.PUBLISH,
-      message: buf,
-      extensions: 0x600,
-      onSent
-    })
+    for (const peer of node.peers.values()) {
+      peer.nanoSocket.sendMessage({
+        messageType: NanoConstants.MESSAGE_TYPE.PUBLISH,
+        message: block.encoded,
+        extensions: 0x600,
+        onSent: () => onSent(peer.address)
+      })
+    }
   }
 }
 
@@ -347,10 +354,10 @@ const main = async () => {
     }
 
     // kill after 5 mins (if it hangs for whatever reason)
-    setTimeout(() => {
-      process.exit()
-    }, 300000)
-
+    /* setTimeout(() => {
+     *   process.exit()
+     * }, 300000)
+     */
     await run({
       seed: argv.seed,
       url: argv.rpc,
