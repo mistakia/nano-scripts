@@ -6,6 +6,7 @@ import { rpc, utils } from 'nano-rpc'
 import WebSocket from 'ws'
 import * as nanocurrency from 'nanocurrency'
 import fs from 'fs-extra'
+import PQueue from 'p-queue'
 
 import NanoNode, { NanoConstants } from 'nano-node-light'
 
@@ -175,37 +176,45 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
   const res2 = await rpc(action2, { url })
 
   const blocks = []
+  const queue = new PQueue({ concurrency: 10 })
+
   for (let i = 0; i < accounts.length; i++) {
-    const account = accounts[i].address
-    const frontier = frontier_hashes[i]
-    const frontierBlock = res2.blocks[frontier]
+    queue.add(async () => {
+      const account = accounts[i].address
+      const frontier = frontier_hashes[i]
+      const frontierBlock = res2.blocks[frontier]
 
-    const derived_rep_from_frontier = nanocurrency
-      .deriveAddress(frontier)
-      .replace('xrb_', 'nano_')
+      const derived_rep_from_frontier = nanocurrency
+        .deriveAddress(frontier)
+        .replace('xrb_', 'nano_')
 
-    const changeBlock = await utils.createChangeBlock({
-      accountInfo: {
-        balance: frontierBlock.balance,
-        frontier,
-        account
-      },
-      rep: derived_rep_from_frontier,
-      privateKey: accounts[i].privateKey,
-      workerUrl
+      const changeBlock = await utils.createChangeBlock({
+        accountInfo: {
+          balance: frontierBlock.balance,
+          frontier,
+          account
+        },
+        rep: derived_rep_from_frontier,
+        privateKey: accounts[i].privateKey,
+        workerUrl
+      })
+      blocks.push({
+        json: changeBlock,
+        encoded: encodeBlock(changeBlock),
+        hash: nanocurrency.hashBlock(changeBlock)
+      })
+
+      if (process.stdout.clearLine) {
+        process.stdout.clearLine()
+        process.stdout.cursorTo(0)
+        process.stdout.write(
+          `Generating change Blocks: ${i}/${accounts.length}`
+        )
+      }
     })
-    blocks.push({
-      json: changeBlock,
-      encoded: encodeBlock(changeBlock),
-      hash: nanocurrency.hashBlock(changeBlock)
-    })
-
-    if (process.stdout.clearLine) {
-      process.stdout.clearLine()
-      process.stdout.cursorTo(0)
-      process.stdout.write(`Generating change Blocks: ${i}/${accounts.length}`)
-    }
   }
+
+  await queue.onIdle()
 
   process.stdout.write('\n')
   const blockGenerationEnd = process.hrtime.bigint()
