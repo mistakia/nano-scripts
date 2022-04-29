@@ -240,24 +240,14 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
     port: '54000'
   })
 
-  ws.send(
-    JSON.stringify({
-      action: 'subscribe',
-      topic: 'confirmation'
-    })
-  )
+  node.connect({
+    addresss: '::ffff:194.146.12.171',
+    port: '54000'
+  })
 
-  await wait(5000)
-
-  log(`Connected peers: ${node.peers.size}`)
-
-  // sample time
-  const startTime = process.hrtime.bigint()
-  log(`Broadcast start time: ${startTime}`)
-
-  let confirmation_counter = 0
   let broadcastEndTime
   let endTime
+  let confirmation_counter = 0
   ws.on('message', (data) => {
     const d = JSON.parse(data)
 
@@ -313,6 +303,21 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
       process.exit()
     }
   })
+
+  ws.send(
+    JSON.stringify({
+      action: 'subscribe',
+      topic: 'confirmation'
+    })
+  )
+
+  await wait(5000)
+
+  log(`Connected peers: ${node.peers.size}`)
+
+  // sample time
+  const startTime = process.hrtime.bigint()
+  log(`Broadcast start time: ${startTime}`)
 
   // broadcast blocks
   const writeCounter = {}
