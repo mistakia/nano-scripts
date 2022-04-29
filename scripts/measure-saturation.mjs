@@ -176,10 +176,12 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
   const res2 = await rpc(action2, { url })
 
   const blocks = []
-  const queue = new PQueue({ concurrency: 10 })
+  const queue = new PQueue({ concurrency: 20 })
 
+  let count = 0
   for (let i = 0; i < accounts.length; i++) {
     queue.add(async () => {
+      count += 1
       const account = accounts[i].address
       const frontier = frontier_hashes[i]
       const frontierBlock = res2.blocks[frontier]
@@ -208,7 +210,7 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
         process.stdout.clearLine()
         process.stdout.cursorTo(0)
         process.stdout.write(
-          `Generating change Blocks: ${i}/${accounts.length}`
+          `Generating change Blocks: ${count}/${accounts.length}`
         )
       }
     })
