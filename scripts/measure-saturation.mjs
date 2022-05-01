@@ -341,6 +341,8 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
         `Broadcast duration: ${Number(broadcastDurationSecs).toFixed(2)} secs`
       )
     }
+
+    node.stop()
   }
 
   for (const block of blocks) {
@@ -353,8 +355,6 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
       })
     }
   }
-
-  node.close()
 }
 
 const main = async () => {
