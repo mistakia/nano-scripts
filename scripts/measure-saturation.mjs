@@ -324,8 +324,11 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
   log(`Broadcast start time: ${startTime}`)
 
   // broadcast blocks
+  let totalWriteCounter = 0
+  let totalDrainCounter = 0
   const writeCounter = {}
   const onSent = (peerAddress) => {
+    totalDrainCounter += 1
     if (writeCounter[peerAddress]) {
       writeCounter[peerAddress] += 1
     } else {
@@ -342,11 +345,14 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
       )
     }
 
-    node.stop()
+    if (totalWriteCounter === totalDrainCounter) {
+      node.stop()
+    }
   }
 
   for (const block of blocks) {
     for (const peer of node.peers.values()) {
+      totalWriteCounter += 1
       peer.nanoSocket.sendMessage({
         messageType: NanoConstants.MESSAGE_TYPE.PUBLISH,
         message: block.encoded,
