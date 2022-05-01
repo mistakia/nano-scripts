@@ -45,11 +45,10 @@ const encodeBlock = (block) => {
   return buf
 }
 
-const run = async ({ seed, url, wsUrl, workerUrl }) => {
+const run = async ({ seed, url, wsUrl, workerUrl, num_accounts = 5000 }) => {
   const ws = await getWebsocket(wsUrl)
 
   const start = 0
-  const num_accounts = 5000
   const accounts = wallet.legacyAccounts(seed, start, num_accounts)
   const main_account = accounts.shift()
   log(`account #0: ${main_account.address}`)
@@ -348,7 +347,8 @@ const main = async () => {
       seed: argv.seed,
       url: argv.rpc,
       wsUrl: argv.wsUrl,
-      workerUrl: argv.workerUrl
+      workerUrl: argv.workerUrl,
+      num_accounts: argv.count
     })
   } catch (err) {
     error = err
