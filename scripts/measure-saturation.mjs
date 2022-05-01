@@ -331,6 +331,12 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
     totalDrainCounter += 1
     if (writeCounter[peerAddress]) {
       writeCounter[peerAddress] += 1
+
+      if (writeCounter[peerAddress] === num_accounts) {
+        const peer = node.peers.get(peerAddress)
+        peer.nanoSocket.close()
+        log(`closed connection to ${peerAddress}`)
+      }
     } else {
       writeCounter[peerAddress] = 1
     }
@@ -347,6 +353,7 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
 
     if (totalWriteCounter === totalDrainCounter) {
       node.stop()
+      log('Node stopped')
     }
   }
 
