@@ -1,19 +1,23 @@
+import { Worker } from 'worker_threads'
+import path from 'path'
 import debug from 'debug'
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
 import { wallet } from 'nanocurrency-web'
 import { rpc, utils } from 'nano-rpc'
+import { fileURLToPath } from 'url'
 import WebSocket from 'ws'
 import * as nanocurrency from 'nanocurrency'
 import fs from 'fs-extra'
 import PQueue from 'p-queue'
 
-import NanoNode, { NanoConstants } from 'nano-node-light'
-
 import { isMain, resultsPath } from '#common'
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const argv = yargs(hideBin(process.argv)).argv
+const __filename =
+  path.dirname(fileURLToPath(import.meta.url)) +
+  '/measure-saturation-worker.mjs'
 const log = debug('measure-saturation')
 debug.enable('measure-saturation')
 
@@ -228,26 +232,20 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
     )} secs`
   )
 
-  const network = NanoConstants.NETWORK.BETA
-  const node = new NanoNode({ network, maxPeers: Infinity })
-
-  node.on('error', () => {
-    // ignore
-  })
-
-  node.connect({
-    address: '::ffff:116.202.107.97',
-    port: '54000'
-  })
-
-  node.connect({
-    addresss: '::ffff:194.146.12.171',
-    port: '54000'
-  })
-
   let broadcastEndTime
   let endTime
+  let startTime
   let confirmation_counter = 0
+
+  const worker = new Worker(__filename)
+  worker.once('message', async (result) => {
+    broadcastEndTime = result.broadcastEndTime
+    startTime = result.startTime
+    log(`Broadcast end time: ${broadcastEndTime}`)
+    const broadcastDurationSecs = (broadcastEndTime - startTime) / BigInt(1e9)
+    log(`Broadcast duration: ${Number(broadcastDurationSecs).toFixed(2)} secs`)
+  })
+
   ws.on('message', (data) => {
     const d = JSON.parse(data)
 
@@ -315,59 +313,12 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
     })
   )
 
-  await wait(5000)
+  await wait(10000)
 
-  log(`Connected peers: ${node.peers.size}`)
-
-  // sample time
-  const startTime = process.hrtime.bigint()
-  log(`Broadcast start time: ${startTime}`)
-
-  // broadcast blocks
-  let totalWriteCounter = 0
-  let totalDrainCounter = 0
-  const writeCounter = {}
-  const onSent = (peerAddress) => {
-    totalDrainCounter += 1
-    if (writeCounter[peerAddress]) {
-      writeCounter[peerAddress] += 1
-
-      if (writeCounter[peerAddress] === num_accounts) {
-        const peer = node.peers.get(peerAddress)
-        peer.nanoSocket.close()
-        log(`closed connection to ${peerAddress}`)
-      }
-    } else {
-      writeCounter[peerAddress] = 1
-    }
-
-    // sample time when first peer receives all blocks
-    if (writeCounter[peerAddress] === num_accounts && !broadcastEndTime) {
-      broadcastEndTime = process.hrtime.bigint()
-      log(`Broadcast end time: ${broadcastEndTime}`)
-      const broadcastDurationSecs = (broadcastEndTime - startTime) / BigInt(1e9)
-      log(
-        `Broadcast duration: ${Number(broadcastDurationSecs).toFixed(2)} secs`
-      )
-    }
-
-    if (totalWriteCounter === totalDrainCounter) {
-      node.stop()
-      log('Node stopped')
-    }
-  }
-
-  for (const block of blocks) {
-    for (const peer of node.peers.values()) {
-      totalWriteCounter += 1
-      peer.nanoSocket.sendMessage({
-        messageType: NanoConstants.MESSAGE_TYPE.PUBLISH,
-        message: block.encoded,
-        extensions: 0x600,
-        onSent: () => onSent(peer.address)
-      })
-    }
-  }
+  worker.postMessage({
+    blocks,
+    num_accounts
+  })
 }
 
 const main = async () => {
