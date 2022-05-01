@@ -2130,15 +2130,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"nano-node-light@Nano-LightNet/nano-node-light#9a7d629465a41e3516b670d88ea37e26b25bc81c":
+"nano-node-light@Nano-LightNet/nano-node-light#8098c84f9ffe4948592f98f6fb24359b4969c9d9":
   version: 0.0.1
-  resolution: "nano-node-light@https://github.com/Nano-LightNet/nano-node-light.git#commit=9a7d629465a41e3516b670d88ea37e26b25bc81c"
+  resolution: "nano-node-light@https://github.com/Nano-LightNet/nano-node-light.git#commit=8098c84f9ffe4948592f98f6fb24359b4969c9d9"
   dependencies:
     blake2: ^4.1.1
     debug: ^4.3.4
     ip6addr: ^0.2.5
     yargs: ^17.4.0
-  checksum: bb6a416f746f7dbbfd0fe23cc46e46b1fc739f48a5e49b8f37daa562b6ffde4116ed0ed7ab47d8eb1b54fee90248662142468af9719ed79d5c3c283f60e35da8
+  checksum: dedaa4ace122b145cceaa4efb75f0c27c714ac95ad7a55993a72ee732d7c0584ace0f78054813f84f733f9a3d7a2d68606a1e934a31834c8f9157973dfaa3172
   languageName: node
   linkType: hard
 
@@ -2603,7 +2603,7 @@ __metadata:
     eslint-plugin-node: ^11.1.0
     eslint-plugin-promise: ^6.0.0
     fs-extra: ^10.1.0
-    nano-node-light: "Nano-LightNet/nano-node-light#9a7d629465a41e3516b670d88ea37e26b25bc81c"
+    nano-node-light: "Nano-LightNet/nano-node-light#8098c84f9ffe4948592f98f6fb24359b4969c9d9"
     nano-rpc: "mistakia/nano-rpc#70dc861b016be5f1599fa3ead8a1dc451508388d"
     nanocurrency: ^2.5.0
     nanocurrency-web: ^1.3.6

@@ -253,6 +253,10 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
 
     if (d.topic !== 'confirmation') return
 
+    if (confirmation_counter === 0) {
+      log('Received first confirmation')
+    }
+
     confirmation_counter += 1
     if (process.stdout.clearLine) {
       process.stdout.clearLine()
@@ -349,6 +353,8 @@ const run = async ({ seed, url, wsUrl, workerUrl }) => {
       })
     }
   }
+
+  node.close()
 }
 
 const main = async () => {
