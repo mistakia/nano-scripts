@@ -338,11 +338,13 @@ const main = async () => {
       return
     }
 
-    // kill after 5 mins (if it hangs for whatever reason)
-    /* setTimeout(() => {
-     *   process.exit()
-     * }, 300000)
-     */
+    // kill after given timeout
+    if (argv.timeout) {
+      setTimeout(() => {
+        process.exit()
+      }, argv.timeout)
+    }
+
     await run({
       seed: argv.seed,
       url: argv.rpc,
