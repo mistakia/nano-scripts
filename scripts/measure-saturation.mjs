@@ -341,6 +341,7 @@ const main = async () => {
     // kill after given timeout
     if (argv.timeout) {
       setTimeout(() => {
+        log(`Script timed out after ${argv.timeout} ms`)
         process.exit()
       }, argv.timeout)
     }
