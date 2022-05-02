@@ -45,7 +45,7 @@ const encodeBlock = (block) => {
   return buf
 }
 
-const run = async ({ seed, url, wsUrl, workerUrl, num_accounts = 5000 }) => {
+const run = async ({ seed, url, wsUrl, workerUrl, num_accounts = 5000, setup = false }) => {
   const ws = await getWebsocket(wsUrl)
 
   const start = 0
@@ -164,6 +164,10 @@ const run = async ({ seed, url, wsUrl, workerUrl, num_accounts = 5000 }) => {
         }
       )
     }
+  }
+
+  if (setup) {
+    process.exit()
   }
 
   // create 5k change blocks (1 per account)
@@ -351,7 +355,8 @@ const main = async () => {
       url: argv.rpc,
       wsUrl: argv.wsUrl,
       workerUrl: argv.workerUrl,
-      num_accounts: argv.count
+      num_accounts: argv.count,
+      setup: argv.setup
     })
   } catch (err) {
     error = err
