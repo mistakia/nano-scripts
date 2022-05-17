@@ -178,6 +178,13 @@ const run = async ({ seed, url, workerUrl, num_accounts = 5000, setup = false })
   let count = 0
   const spam_amount = 1
   while (true) {
+    const action = {
+      action: 'accounts_frontiers',
+      accounts: accounts.map((a) => a.address)
+    }
+    const res = await rpc(action, { url })
+    const frontier_hashes = Object.values(res.frontiers)
+
     const action2 = {
       action: 'blocks_info',
       json_block: true,
