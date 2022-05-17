@@ -240,7 +240,6 @@ const run = async ({ seed, url, workerUrl, num_accounts = 5000, setup = false })
   let totalDrainCounter = 0
   const writeCounter = {}
   const onSent = (peerAddress) => {
-    console.log(writeCounter)
     totalDrainCounter += 1
     if (writeCounter[peerAddress]) {
       writeCounter[peerAddress] += 1
@@ -251,23 +250,20 @@ const run = async ({ seed, url, workerUrl, num_accounts = 5000, setup = false })
           peer.nanoSocket.close()
         }
 
-        if (!broadcastEndTime) {
+        if (totalWriteCounter === totalDrainCounter) {
+          node.stop()
+          log('Node stopped')
+
           broadcastEndTime = process.hrtime.bigint()
+          log(`Broadcast end time: ${broadcastEndTime}`)
+          const broadcastDurationSecs = (broadcastEndTime - startTime) / BigInt(1e9)
+          log(`Broadcast duration: ${Number(broadcastDurationSecs).toFixed(2)} secs`)
+
+          process.exit()
         }
       }
     } else {
       writeCounter[peerAddress] = 1
-    }
-
-    if (totalWriteCounter === totalDrainCounter) {
-      node.stop()
-      log('Node stopped')
-
-      log(`Broadcast end time: ${broadcastEndTime}`)
-      const broadcastDurationSecs = (broadcastEndTime - startTime) / BigInt(1e9)
-      log(`Broadcast duration: ${Number(broadcastDurationSecs).toFixed(2)} secs`)
-
-      process.exit()
     }
   }
 
