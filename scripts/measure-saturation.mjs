@@ -364,7 +364,7 @@ const main = async () => {
   }
 }
 
-if (isMain) {
+if (isMain(import.meta.url)) {
   main()
 }
 

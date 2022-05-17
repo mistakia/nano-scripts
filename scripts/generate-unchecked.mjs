@@ -196,7 +196,7 @@ const main = async () => {
   process.exit()
 }
 
-if (isMain && isMainThread) {
+if (isMain(import.meta.url) && isMainThread) {
   main()
 } else {
   parentPort.once('message', async (params) => {
