@@ -151,71 +151,8 @@ const run = async ({ seed, url, workerUrl, num_accounts = 5000, setup = false })
     process.exit()
   }
 
-  // create send blocks (1 per account)
-  log('Generating send blocks')
-  const blockGenerationStart = process.hrtime.bigint()
-
-  const action2 = {
-    action: 'blocks_info',
-    json_block: true,
-    include_not_found: true,
-    hashes: frontier_hashes
-  }
-  const res2 = await rpc(action2, { url })
-
-  const blocks = []
-  const queue = new PQueue({ concurrency: 20 })
-
-  let count = 0
-  const spam_amount = 1
-  for (let i = 0; i < accounts.length; i++) {
-    queue.add(async () => {
-      count += 1
-      const account = accounts[i].address
-      const frontier = frontier_hashes[i]
-      const frontierBlock = res2.blocks[frontier]
-
-      const sendBlock = await utils.createSendBlock({
-        accountInfo: {
-          balance: frontierBlock.balance,
-          frontier,
-          account
-        },
-        to: main_account.address,
-        amount: spam_amount,
-        privateKey: accounts[i].privateKey,
-        workerUrl
-      })
-      blocks.push({
-        json: sendBlock,
-        encoded: encodeBlock(sendBlock),
-        hash: nanocurrency.hashBlock(sendBlock)
-      })
-
-      if (process.stdout.clearLine) {
-        process.stdout.clearLine()
-        process.stdout.cursorTo(0)
-        process.stdout.write(
-          `Generating send Blocks: ${count}/${accounts.length}`
-        )
-      }
-    })
-  }
-
-  await queue.onIdle()
-
-  process.stdout.write('\n')
-  const blockGenerationEnd = process.hrtime.bigint()
-  const blockGenerationDuration =
-    (blockGenerationEnd - blockGenerationStart) / BigInt(1e9)
-  log(
-    `Block generation duration: ${Number(blockGenerationDuration).toFixed(
-      2
-    )} secs`
-  )
-
   const network = NanoConstants.NETWORK.BETA
-  const node = new NanoNode({ network, maxPeers: Infinity })
+  const node = new NanoNode({ network, maxPeers: Infinity, discover: false })
 
   node.on('error', () => {
     // ignore
@@ -235,61 +172,128 @@ const run = async ({ seed, url, workerUrl, num_accounts = 5000, setup = false })
 
   log(`Connected peers: ${node.peers.size}`)
 
-  let broadcastEndTime
-  let totalWriteCounter = 0
-  let totalDrainCounter = 0
-  const writeCounter = {}
-  const onSent = (peerAddress) => {
-    totalDrainCounter += 1
-    if (writeCounter[peerAddress]) {
-      writeCounter[peerAddress] += 1
+  // create send blocks (1 per account)
+  log('Generating send blocks')
 
-      if (writeCounter[peerAddress] === num_accounts) {
-        const peer = node.peers.get(peerAddress)
-        if (peer) {
-          peer.nanoSocket.close()
+  let count = 0
+  const spam_amount = 1
+  while (true) {
+    const action2 = {
+      action: 'blocks_info',
+      json_block: true,
+      include_not_found: true,
+      hashes: frontier_hashes
+    }
+    const res2 = await rpc(action2, { url })
+
+    const queue = new PQueue({ concurrency: 20 })
+
+    for (let i = 0; i < accounts.length; i++) {
+      queue.add(async () => {
+        count += 1
+        const account = accounts[i].address
+        const frontier = frontier_hashes[i]
+        const frontierBlock = res2.blocks[frontier]
+
+        const sendBlock = await utils.createSendBlock({
+          accountInfo: {
+            balance: frontierBlock.balance,
+            frontier,
+            account
+          },
+          to: main_account.address,
+          amount: spam_amount,
+          privateKey: accounts[i].privateKey,
+          workerUrl
+        })
+
+        const message = encodeBlock(sendBlock)
+
+        for (const peer of node.peers.values()) {
+          if (!peer) continue
+          peer.nanoSocket.sendMessage({
+            messageType: NanoConstants.MESSAGE_TYPE.PUBLISH,
+            message,
+            extensions: 0x600
+          })
         }
 
-        if (totalWriteCounter === totalDrainCounter) {
-          node.stop()
-          log('Node stopped')
-
-          broadcastEndTime = process.hrtime.bigint()
-          log(`Broadcast end time: ${broadcastEndTime}`)
-          const broadcastDurationSecs = (broadcastEndTime - startTime) / BigInt(1e9)
-          log(`Broadcast duration: ${Number(broadcastDurationSecs).toFixed(2)} secs`)
-
-          process.exit()
+        if (process.stdout.clearLine) {
+          process.stdout.clearLine()
+          process.stdout.cursorTo(0)
+          process.stdout.write(
+            `Broadcasting send Blocks: ${count}/${accounts.length}`
+          )
         }
-      }
-    } else {
-      writeCounter[peerAddress] = 1
-    }
-  }
-
-  const startTime = process.hrtime.bigint()
-  let last_block = startTime
-  const rate = BigInt(Math.floor(1e9 / 25))
-  for (const block of blocks) {
-    const current_time = process.hrtime.bigint()
-    const elapsed = current_time - last_block
-    if (elapsed < rate) {
-      await wait(Number((rate - elapsed) / BigInt(1e+6)))
-    }
-
-    last_block = process.hrtime.bigint()
-
-    for (const peer of node.peers.values()) {
-      if (!peer) continue
-      totalWriteCounter += 1
-      peer.nanoSocket.sendMessage({
-        messageType: NanoConstants.MESSAGE_TYPE.PUBLISH,
-        message: block.encoded,
-        extensions: 0x600,
-        onSent: () => onSent(peer.connectionInfo.toString('binary'))
       })
     }
   }
+
+  /* process.stdout.write('\n')
+   * const blockGenerationEnd = process.hrtime.bigint()
+   * const blockGenerationDuration =
+   *   (blockGenerationEnd - blockGenerationStart) / BigInt(1e9)
+   * log(
+   *   `Block generation duration: ${Number(blockGenerationDuration).toFixed(
+   *     2
+   *   )} secs`
+   * )
+
+   * let broadcastEndTime
+   * let totalWriteCounter = 0
+   * let totalDrainCounter = 0
+   * const writeCounter = {}
+   * const onSent = (peerAddress) => {
+   *   totalDrainCounter += 1
+   *   if (writeCounter[peerAddress]) {
+   *     writeCounter[peerAddress] += 1
+
+   *     if (writeCounter[peerAddress] === num_accounts) {
+   *       const peer = node.peers.get(peerAddress)
+   *       if (peer) {
+   *         peer.nanoSocket.close()
+   *       }
+
+   *       if (totalWriteCounter === totalDrainCounter) {
+   *         node.stop()
+   *         log('Node stopped')
+
+   *         broadcastEndTime = process.hrtime.bigint()
+   *         log(`Broadcast end time: ${broadcastEndTime}`)
+   *         const broadcastDurationSecs = (broadcastEndTime - startTime) / BigInt(1e9)
+   *         log(`Broadcast duration: ${Number(broadcastDurationSecs).toFixed(2)} secs`)
+
+   *         process.exit()
+   *       }
+   *     }
+   *   } else {
+   *     writeCounter[peerAddress] = 1
+   *   }
+   * }
+
+   * const startTime = process.hrtime.bigint()
+   * let last_block = startTime
+   * const rate = BigInt(Math.floor(1e9 / 25))
+   * for (const block of blocks) {
+   *   const current_time = process.hrtime.bigint()
+   *   const elapsed = current_time - last_block
+   *   if (elapsed < rate) {
+   *     await wait(Number((rate - elapsed) / BigInt(1e+6)))
+   *   }
+
+   *   last_block = process.hrtime.bigint()
+
+   *   for (const peer of node.peers.values()) {
+   *     if (!peer) continue
+   *     totalWriteCounter += 1
+   *     peer.nanoSocket.sendMessage({
+   *       messageType: NanoConstants.MESSAGE_TYPE.PUBLISH,
+   *       message: block.encoded,
+   *       extensions: 0x600,
+   *       onSent: () => onSent(peer.connectionInfo.toString('binary'))
+   *     })
+   *   }
+   * } */
 }
 
 const main = async () => {
