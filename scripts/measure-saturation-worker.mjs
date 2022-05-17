@@ -14,12 +14,12 @@ parentPort.once('message', async ({ blocks, num_accounts }) => {
     // ignore
   })
 
-  node.connect({
+  node.connectAddress({
     address: '::ffff:116.202.107.97',
     port: '54000'
   })
 
-  node.connect({
+  node.connectAddress({
     addresss: '::ffff:194.146.12.171',
     port: '54000'
   })
