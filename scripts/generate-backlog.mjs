@@ -154,8 +154,8 @@ const run = async ({ seed, url, workerUrl, num_accounts = 5000, setup = false })
   const network = NanoConstants.NETWORK.BETA
   const node = new NanoNode({ network, maxPeers: Infinity, discover: false })
 
-  node.on('error', () => {
-    // ignore
+  node.on('error', (err) => {
+    log(error)
   })
 
   node.connectAddress({
