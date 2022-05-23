@@ -6,12 +6,11 @@ import { hideBin } from 'yargs/helpers'
 import { wallet } from 'nanocurrency-web'
 import { rpc, utils } from 'nano-rpc'
 import { fileURLToPath } from 'url'
-import WebSocket from 'ws'
 import * as nanocurrency from 'nanocurrency'
 import fs from 'fs-extra'
 import PQueue from 'p-queue'
 
-import { isMain, resultsPath } from '#common'
+import { isMain, resultsPath, getWebsocket } from '#common'
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const argv = yargs(hideBin(process.argv)).argv
@@ -20,16 +19,6 @@ const __filename =
   '/measure-saturation-worker.mjs'
 const log = debug('measure-saturation')
 debug.enable('measure-saturation')
-
-const getWebsocket = (wsUrl) =>
-  new Promise((resolve, reject) => {
-    const ws = new WebSocket(wsUrl)
-    ws.on('open', () => {
-      resolve(ws)
-    })
-
-    ws.on('error', (error) => reject(error))
-  })
 
 const encodeBlock = (block) => {
   const buf = Buffer.alloc(216)
@@ -45,7 +34,14 @@ const encodeBlock = (block) => {
   return buf
 }
 
-const run = async ({ seed, url, wsUrl, workerUrl, num_accounts = 5000, setup = false }) => {
+const run = async ({
+  seed,
+  url,
+  wsUrl,
+  workerUrl,
+  num_accounts = 5000,
+  setup = false
+}) => {
   const ws = await getWebsocket(wsUrl)
 
   const start = 0
