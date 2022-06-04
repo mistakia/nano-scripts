@@ -11,7 +11,7 @@
     "dayjs": "^1.11.1",
     "debug": "^4.3.4",
     "fs-extra": "^10.1.0",
-    "nano-node-light": "Nano-LightNet/nano-node-light#e5f46fca871b3c8869c7d8ca1836d9139dcd94c4",
+    "nano-node-light": "Nano-LightNet/nano-node-light#365f12765d498b488e00c1bcb54d7949f26bcdd5",
     "nano-rpc": "mistakia/nano-rpc#70dc861b016be5f1599fa3ead8a1dc451508388d",
     "nanocurrency": "^2.5.0",
     "nanocurrency-web": "^1.3.6",

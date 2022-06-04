@@ -3,7 +3,7 @@ import NanoNode, { NanoConstants } from 'nano-node-light'
 import debug from 'debug'
 
 const log = debug('measure-saturation-worker')
-debug.enable('measure-saturation-worker')
+debug.enable('measure-saturation-worker,node')
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 parentPort.once('message', async ({ blocks, num_accounts }) => {
@@ -16,6 +16,11 @@ parentPort.once('message', async ({ blocks, num_accounts }) => {
 
   node.connectAddress({
     address: '::ffff:116.202.107.97',
+    port: '54000'
+  })
+
+  node.connectAddress({
+    address: '::ffff:167.172.215.52',
     port: '54000'
   })
 
